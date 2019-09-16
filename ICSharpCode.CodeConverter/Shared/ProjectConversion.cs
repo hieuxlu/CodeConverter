@@ -103,15 +103,7 @@ namespace ICSharpCode.CodeConverter.Shared
             var results = pathNodePairs.Select(pathNodePair => new ConversionResult(pathNodePair.Node.ToFullString())
                 {SourcePathOrNull = pathNodePair.Path, Exceptions = pathNodePair.Errors.ToList() });
 
-            var warnings = await projectConversion.GetProjectWarnings();
-            if (warnings != null) {
-                string projectFilePath = projectConversion._project.FilePath;
-                string projectDir = projectFilePath != null ? Path.GetDirectoryName(projectFilePath) : projectConversion._project.AssemblyName;
-                var warningPath = Path.Combine(projectDir, "ConversionWarnings.txt");
-                results = results.Concat(new[]{new ConversionResult { SourcePathOrNull = warningPath, Exceptions = new[] { warnings } }});
-            }
-
-            return results;
+            return results.Concat(await projectConversion.GetProjectWarnings());
         }
 
         private async Task<(string Path, SyntaxNode Node, string[] Errors)[]> Convert(
@@ -158,10 +150,15 @@ namespace ICSharpCode.CodeConverter.Shared
             return (firstPassResult.treeFilePath, selectedNode ?? await firstPassResult.convertedDoc.GetSyntaxRootAsync(), firstPassResult.errors.Concat(errors).ToArray());
         }
 
-        private async Task<string> GetProjectWarnings()
+        private async Task<ConversionResult[]> GetProjectWarnings()
         {
-            if (!_showCompilationErrors) return null;
-            return await _languageConversion.GetWarningsOrNull();
+            if (!_showCompilationErrors) return new ConversionResult[0];
+            string warningsOrNull = await _languageConversion.GetWarningsOrNull();
+            if (warningsOrNull == null) return new ConversionResult[0];
+            string projectFilePath = _project.FilePath;
+            string projectDir = projectFilePath != null ? Path.GetDirectoryName(projectFilePath) : _project.AssemblyName;
+            var warningPath = Path.Combine(projectDir, "ConversionWarnings.txt");
+            return new[] {new ConversionResult {SourcePathOrNull = warningPath, Exceptions = new[] {warningsOrNull}}};
         }
 
         private async Task<(string treeFilePath, Document convertedDoc, string[] errors)> FirstPass(Document document, IProgress<string> progress)
