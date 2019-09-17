@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using ICSharpCode.CodeConverter.Shared;
 using ICSharpCode.CodeConverter.Util;
 using ICSharpCode.CodeConverter.VB;
@@ -33,6 +35,7 @@ namespace ICSharpCode.CodeConverter.CSharp
         private static readonly CSharpParseOptions DoNotAllowImplicitDefault = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.CSharp7);
 
         private Project _csharpReferenceProject;
+        private Func<Location, SyntaxTree> _getEmbeddedSyntaxTree;
 
         public string RootNamespace { get; set; }
 
@@ -188,6 +191,31 @@ End Class";
             return VisualBasicCompiler.CreateCompilationOptions(RootNamespace)
                 .CreateProjectDocumentFromTree(workspace, tree, references, VisualBasicParseOptions.Default,
                     ISymbolExtensions.ForcePartialTypesAssemblyName);
+        }
+        
+        public async Task<ConversionResult[]> GetNonDocumentResults()
+        {
+            var compilation = await _sourceVbProject.GetCompilationAsync();
+            var ns = compilation.SourceModule.GlobalNamespace;
+
+            var projectDir = Path.GetDirectoryName(_sourceVbProject.FilePath);
+            var syntaxTrees = ns.Locations.Where(l => !l.IsInSource).Select(GetEmbeddedSyntaxTree);
+            return await syntaxTrees.ParallelSelectAsync(async tree => {
+                    var convertedNode = await VisualBasicConverter.ConvertCompilationTree(_sourceVbProject, tree, _csharpReferenceProject,
+                        _csharpViewOfVbSymbols);
+                    return new ConversionResult(convertedNode.ToFullString()) { SourcePathOrNull = Path.Combine(projectDir, Guid.NewGuid() + ".txt")};
+                }, Env.MaxDop
+            );
+        }
+
+        private SyntaxTree GetEmbeddedSyntaxTree(Location loc)
+        {
+            if (_getEmbeddedSyntaxTree == null) {
+                var property = loc.GetType().GetProperty("PossiblyEmbeddedOrMySourceTree");
+                _getEmbeddedSyntaxTree = property?.GetMethod.GetRuntimeBaseDefinition()
+                    .CreateOpenInstanceDelegateForcingType<Location, SyntaxTree>();
+            }
+            return _getEmbeddedSyntaxTree?.Invoke(loc);
         }
     }
 }

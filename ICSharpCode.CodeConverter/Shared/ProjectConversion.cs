@@ -79,7 +79,6 @@ namespace ICSharpCode.CodeConverter.Shared
             );
         }
 
-
         private static async Task<IEnumerable<ConversionResult>> ConvertProjectContents(Project project, IProgress<ConversionProgress> progress, ILanguageConversion languageConversion)
         {
             var documentsToConvert = project.Documents.Where(d => !BannedPaths.Any(d.FilePath.Contains));
@@ -103,7 +102,7 @@ namespace ICSharpCode.CodeConverter.Shared
             var results = pathNodePairs.Select(pathNodePair => new ConversionResult(pathNodePair.Node.ToFullString())
                 {SourcePathOrNull = pathNodePair.Path, Exceptions = pathNodePair.Errors.ToList() });
 
-            return results.Concat(await projectConversion.GetProjectWarnings());
+            return results.Concat(await projectConversion.GetExtraResultsNotFromDocuments());
         }
 
         private async Task<(string Path, SyntaxNode Node, string[] Errors)[]> Convert(
@@ -150,15 +149,22 @@ namespace ICSharpCode.CodeConverter.Shared
             return (firstPassResult.treeFilePath, selectedNode ?? await firstPassResult.convertedDoc.GetSyntaxRootAsync(), firstPassResult.errors.Concat(errors).ToArray());
         }
 
-        private async Task<ConversionResult[]> GetProjectWarnings()
+        private async Task<IEnumerable<ConversionResult>> GetExtraResultsNotFromDocuments()
         {
-            if (!_showCompilationErrors) return new ConversionResult[0];
-            string warningsOrNull = await _languageConversion.GetWarningsOrNull();
-            if (warningsOrNull == null) return new ConversionResult[0];
-            string projectFilePath = _project.FilePath;
-            string projectDir = projectFilePath != null ? Path.GetDirectoryName(projectFilePath) : _project.AssemblyName;
-            var warningPath = Path.Combine(projectDir, "ConversionWarnings.txt");
-            return new[] {new ConversionResult {SourcePathOrNull = warningPath, Exceptions = new[] {warningsOrNull}}};
+            var extraResults = new List<ConversionResult>(2);
+
+            if (_showCompilationErrors && await _languageConversion.GetWarningsOrNull() is string warnings) {
+                string projectFilePath = _project.FilePath;
+                string projectDir = projectFilePath != null
+                    ? Path.GetDirectoryName(projectFilePath)
+                    : _project.AssemblyName;
+                var warningPath = Path.Combine(projectDir, "ConversionWarnings.txt");
+                var warningResult = new ConversionResult
+                    {SourcePathOrNull = warningPath, Exceptions = new[] { warnings } };
+                extraResults.Add(warningResult);
+            }
+
+            return extraResults.Concat(await _languageConversion.GetNonDocumentResults());
         }
 
         private async Task<(string treeFilePath, Document convertedDoc, string[] errors)> FirstPass(Document document, IProgress<string> progress)

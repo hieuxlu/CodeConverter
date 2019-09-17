@@ -27,5 +27,6 @@ namespace ICSharpCode.CodeConverter.CSharp
         string RootNamespace { get; set; }
         Task Initialize(Project project);
         string PostTransformProjectFile(string xml);
+        Task<ConversionResult[]> GetNonDocumentResults();
     }
 }

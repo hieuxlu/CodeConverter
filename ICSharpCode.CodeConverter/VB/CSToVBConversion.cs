@@ -73,6 +73,11 @@ namespace ICSharpCode.CodeConverter.VB
             return xml;
         }
 
+        public async Task<ConversionResult[]> GetNonDocumentResults()
+        {
+            return new ConversionResult[0];
+        }
+
         private string AddInfer(string xml)
         {
             if (xml.IndexOf("<OptionInfer>") > -1) return xml;
