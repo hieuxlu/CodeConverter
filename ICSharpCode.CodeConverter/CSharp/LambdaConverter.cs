@@ -22,7 +22,7 @@ namespace ICSharpCode.CodeConverter.CSharp
         {
             CommonConversions = commonConversions;
             _semanticModel = semanticModel;
-            _solution = CommonConversions.Document.Project.Solution;
+            _solution = CommonConversions.Project.Solution;
         }
 
         public CommonConversions CommonConversions { get; }

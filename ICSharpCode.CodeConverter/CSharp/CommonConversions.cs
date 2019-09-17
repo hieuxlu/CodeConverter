@@ -38,19 +38,19 @@ namespace ICSharpCode.CodeConverter.CSharp
     {
         private static readonly Type ExtensionAttributeType = typeof(ExtensionAttribute);
         private static readonly Type OutAttributeType = typeof(OutAttribute);
-        public Document Document { get; }
+        public Project Project { get; }
         private readonly SemanticModel _semanticModel;
         public SyntaxGenerator CsSyntaxGenerator { get; }
         private readonly CSharpCompilation _csCompilation;
         public CommentConvertingVisitorWrapper<CSharpSyntaxNode> TriviaConvertingExpressionVisitor { get; set; }
         public TypeConversionAnalyzer TypeConversionAnalyzer { get; }
 
-        public CommonConversions(Document document, SemanticModel semanticModel,
+        public CommonConversions(Project project, SemanticModel semanticModel,
             TypeConversionAnalyzer typeConversionAnalyzer, SyntaxGenerator csSyntaxGenerator,
             CSharpCompilation csCompilation)
         {
             TypeConversionAnalyzer = typeConversionAnalyzer;
-            Document = document;
+            Project = project;
             _semanticModel = semanticModel;
             CsSyntaxGenerator = csSyntaxGenerator;
             _csCompilation = csCompilation;
@@ -362,7 +362,7 @@ namespace ICSharpCode.CodeConverter.CSharp
             TokenContext context = TokenContext.Global, bool isVariableOrConst = false, bool isConstructor = false)
         {
             ISymbol declaredSymbol = _semanticModel.GetDeclaredSymbol(node);
-            var declaredAccessibility = declaredSymbol.DeclaredAccessibility;
+            var declaredAccessibility = declaredSymbol?.DeclaredAccessibility ?? Accessibility.NotApplicable;
 
             var contextsWithIdenticalDefaults = new[] { TokenContext.Global, TokenContext.Local, TokenContext.InterfaceOrModule, TokenContext.MemberInInterface };
             bool isPartial = declaredSymbol.IsPartialClassDefinition() || declaredSymbol.IsPartialMethodDefinition() || declaredSymbol.IsPartialMethodImplementation();
